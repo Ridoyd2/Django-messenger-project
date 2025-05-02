@@ -29,7 +29,6 @@ media
 
 # Virtual Environment
 venv/
-env/
 ENV/
 
 # IDE
