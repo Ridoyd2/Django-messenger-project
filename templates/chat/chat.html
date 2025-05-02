@@ -1,0 +1,287 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Chat with {{ receiver.username }} - Messenger{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <a href="{% url 'home' %}" class="text-white me-2"><i class="bi bi-arrow-left"></i></a>
+                    {{ receiver.username }}
+                </h4>
+                <div class="d-flex align-items-center">
+                    <div class="form-check form-switch me-3">
+                        <input class="form-check-input" type="checkbox" id="aiBotToggle" {% if receiver.useraisettings.ai_bot_enabled %}checked{% endif %}>
+                        <label class="form-check-label text-white" for="aiBotToggle">AI Bot</label>
+                    </div>
+                    <span class="status-indicator {% if receiver.userstatus.is_online %}online{% else %}offline{% endif %}"></span>
+                </div>
+            </div>
+            <div class="card-body chat-container" id="chat-messages">
+                {% for message in messages %}
+                <div class="message {% if message.sender == user %}outgoing{% else %}incoming{% endif %} {% if message.is_bot_response %}bot-response{% endif %}">
+                    <div class="message-content">
+                        {{ message.content }}
+                    </div>
+                    <div class="message-time">
+                        {{ message.timestamp|time:"H:i" }}
+                        {% if message.is_bot_response %}
+                        <span class="bot-indicator">(AI Response)</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted">
+                    <p>No messages yet. Start the conversation!</p>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="card-footer">
+                <form id="message-form">
+                    <div class="input-group">
+                        <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-container {
+        height: 400px;
+        overflow-y: auto;
+        padding: 15px;
+    }
+    .message {
+        margin-bottom: 15px;
+        max-width: 70%;
+    }
+    .incoming {
+        float: left;
+        clear: both;
+    }
+    .outgoing {
+        float: right;
+        clear: both;
+    }
+    .message-content {
+        padding: 10px;
+        border-radius: 10px;
+        word-wrap: break-word;
+    }
+    .incoming .message-content {
+        background-color: #f1f0f0;
+    }
+    .outgoing .message-content {
+        background-color: #dcf8c6;
+    }
+    .bot-response .message-content {
+        background-color: #e6f7ff;
+    }
+    .message-time {
+        font-size: 0.75rem;
+        margin-top: 3px;
+        color: #777;
+    }
+    .incoming .message-time {
+        text-align: left;
+    }
+    .outgoing .message-time {
+        text-align: right;
+    }
+    .bot-indicator {
+        font-size: 0.7rem;
+        color: #0077cc;
+        margin-left: 5px;
+    }
+    .status-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+    }
+    .online {
+        background-color: #28a745;
+    }
+    .offline {
+        background-color: #dc3545;
+    }
+    .form-check-input {
+        cursor: pointer;
+    }
+    .form-check-label {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        const chatContainer = $('#chat-messages');
+        const messageForm = $('#message-form');
+        const messageInput = $('#message-input');
+        const receiverId = {{ receiver.id }};
+        const aiBotToggle = $('#aiBotToggle');
+        
+        // Handle AI bot toggle
+        aiBotToggle.on('change', function() {
+            $.ajax({
+                url: `/api/toggle_ai_bot/${receiverId}/`,
+                type: 'POST',
+                data: {
+                    enabled: $(this).is(':checked')
+                },
+                success: function(response) {
+                    if (response.status === 'success') {
+                        // Show success message
+                        const message = response.enabled ? 'AI Bot enabled' : 'AI Bot disabled';
+                        const alert = $(`<div class="alert alert-success alert-dismissible fade show" role="alert">
+                            ${message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>`);
+                        $('.card-body').prepend(alert);
+                        setTimeout(() => alert.alert('close'), 3000);
+                    }
+                }
+            });
+        });
+        
+        // Scroll to bottom of chat container
+        function scrollToBottom() {
+            chatContainer.scrollTop(chatContainer[0].scrollHeight);
+        }
+        
+        // Get messages via AJAX
+        function getMessages() {
+            $.ajax({
+                url: `/api/messages/${receiverId}/`,
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    chatContainer.empty();
+                    
+                    if (data.messages.length === 0) {
+                        chatContainer.html('<div class="text-center text-muted"><p>No messages yet. Start the conversation!</p></div>');
+                    } else {
+                        data.messages.forEach(function(message) {
+                            const messageClass = message.is_self ? 'outgoing' : 'incoming';
+                            const botClass = message.is_bot_response ? 'bot-response' : '';
+                            const botIndicator = message.is_bot_response ? '<span class="bot-indicator">(AI Response)</span>' : '';
+                            
+                            const messageHtml = `
+                                <div class="message ${messageClass} ${botClass}">
+                                    <div class="message-content">${message.content}</div>
+                                    <div class="message-time">
+                                        ${message.timestamp}
+                                        ${botIndicator}
+                                    </div>
+                                </div>
+                            `;
+                            
+                            chatContainer.append(messageHtml);
+                        });
+                    }
+                    
+                    scrollToBottom();
+                }
+            });
+        }
+        
+        // Send message via AJAX
+        function sendMessage(content) {
+            $.ajax({
+                url: `/api/send_message/${receiverId}/`,
+                type: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                data: JSON.stringify({ content: content }),
+                success: function(data) {
+                    if (data.status === 'success') {
+                        // Add the sent message
+                        const messageHtml = `
+                            <div class="message outgoing">
+                                <div class="message-content">${data.message.content}</div>
+                                <div class="message-time">${data.message.timestamp}</div>
+                            </div>
+                        `;
+                        chatContainer.append(messageHtml);
+                        
+                        // If there's a bot response, add it too
+                        if (data.bot_response) {
+                            const botMessageHtml = `
+                                <div class="message incoming bot-response">
+                                    <div class="message-content">${data.bot_response.content}</div>
+                                    <div class="message-time">
+                                        ${data.bot_response.timestamp}
+                                        <span class="bot-indicator">(AI Response)</span>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Add bot response after a short delay to simulate typing
+                            setTimeout(function() {
+                                chatContainer.append(botMessageHtml);
+                                scrollToBottom();
+                            }, 1000);
+                        }
+                        
+                        scrollToBottom();
+                    }
+                }
+            });
+        }
+        
+        // Handle form submission
+        messageForm.on('submit', function(e) {
+            e.preventDefault();
+            const content = messageInput.val().trim();
+            
+            if (content) {
+                sendMessage(content);
+                messageInput.val('');
+            }
+        });
+        
+        // Check for new messages every 5 seconds
+        function checkStatusAndMessages() {
+            $.ajax({
+                url: '{% url "get_users" %}',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    // Find receiver in user list
+                    const receiver = data.users.find(user => user.id === receiverId);
+                    if (receiver) {
+                        // Update status indicator
+                        const statusIndicator = $('.status-indicator');
+                        if (receiver.is_online) {
+                            statusIndicator.removeClass('offline').addClass('online');
+                        } else {
+                            statusIndicator.removeClass('online').addClass('offline');
+                        }
+                    }
+                    
+                    // Get messages
+                    getMessages();
+                }
+            });
+        }
+        
+        // Initial scroll to bottom and get messages
+        scrollToBottom();
+        checkStatusAndMessages();
+        
+        // Check for new messages every 5 seconds
+        setInterval(checkStatusAndMessages, 5000);
+    });
+</script>
+{% endblock %} 

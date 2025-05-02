@@ -1,0 +1,97 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Home - Messenger{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Contacts</h4>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" id="user-list">
+                    {% for user in users %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{% url 'chat' user.id %}" class="text-decoration-none">
+                                {{ user.username }}
+                            </a>
+                            <span class="status-indicator {% if user.userstatus.is_online %}online{% else %}offline{% endif %}"></span>
+                        </div>
+                        <span class="badge bg-primary rounded-pill message-count" data-user-id="{{ user.id }}">0</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item">No other users found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-left: 5px;
+    }
+    .online {
+        background-color: #28a745;
+    }
+    .offline {
+        background-color: #dc3545;
+    }
+    .message-count {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Function to update user list
+        function updateUserList() {
+            $.ajax({
+                url: '{% url "get_users" %}',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    // Update user list with online status and unread message count
+                    data.users.forEach(function(user) {
+                        const userItem = $(`#user-list li a:contains('${user.username}')`).parent().parent();
+                        const statusIndicator = userItem.find('.status-indicator');
+                        const messageCount = userItem.find('.message-count');
+                        
+                        // Update online status
+                        if (user.is_online) {
+                            statusIndicator.removeClass('offline').addClass('online');
+                        } else {
+                            statusIndicator.removeClass('online').addClass('offline');
+                        }
+                        
+                        // Update unread message count
+                        messageCount.text(user.unread_count);
+                        if (user.unread_count > 0) {
+                            messageCount.show();
+                        } else {
+                            messageCount.hide();
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Update user list when page loads
+        updateUserList();
+        
+        // Update user list every 10 seconds
+        setInterval(updateUserList, 10000);
+    });
+</script>
+{% endblock %} 
