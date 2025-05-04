@@ -6,7 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
 import json
 
-from .models import Message, UserStatus, UserAISettings
+from .models import Message, UserStatus
 from .forms import MessageForm, SignUpForm
 from .ai_utils import create_bot_response
 
@@ -39,9 +39,6 @@ def chat_view(request, receiver_id):
     # Mark all messages from the receiver as read
     unread_messages = messages.filter(sender=receiver, is_read=False)
     unread_messages.update(is_read=True)
-    
-    # Get or create AI settings for the receiver
-    ai_settings, created = UserAISettings.objects.get_or_create(user=receiver)
     
     return render(request, 'chat/chat.html', {
         'receiver': receiver,
@@ -112,43 +109,23 @@ def send_message(request, receiver_id):
             user_status = UserStatus.objects.get(user=receiver)
             if not user_status.is_online:
                 bot_message = create_bot_response(request.user, receiver)
-                if bot_message:
-                    bot_message_data = {
-                        'id': bot_message.id,
-                        'sender': bot_message.sender.username,
-                        'content': bot_message.content,
-                        'timestamp': bot_message.timestamp.strftime('%H:%M'),
-                        'is_self': False,
-                        'is_bot_response': True,
-                    }
-                    return JsonResponse({
-                        'status': 'success', 
-                        'message': message_data,
-                        'bot_response': bot_message_data
-                    })
+                bot_message_data = {
+                    'id': bot_message.id,
+                    'sender': bot_message.sender.username,
+                    'content': bot_message.content,
+                    'timestamp': bot_message.timestamp.strftime('%H:%M'),
+                    'is_self': False,
+                    'is_bot_response': True,
+                }
+                return JsonResponse({
+                    'status': 'success', 
+                    'message': message_data,
+                    'bot_response': bot_message_data
+                })
         except UserStatus.DoesNotExist:
             pass
         
         return JsonResponse({'status': 'success', 'message': message_data})
-    
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
-
-@csrf_exempt
-@login_required
-def toggle_ai_bot(request, receiver_id):
-    if request.method == 'POST':
-        receiver = get_object_or_404(User, id=receiver_id)
-        enabled = request.POST.get('enabled') == 'true'
-        
-        # Get or create AI settings for the receiver
-        ai_settings, created = UserAISettings.objects.get_or_create(user=receiver)
-        ai_settings.ai_bot_enabled = enabled
-        ai_settings.save()
-        
-        return JsonResponse({
-            'status': 'success',
-            'enabled': enabled
-        })
     
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 

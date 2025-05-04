@@ -12,18 +12,8 @@ class MessageForm(forms.ModelForm):
         }
 
 class SignUpForm(UserCreationForm):
+    email = forms.EmailField(max_length=254, required=True, help_text='Required. Enter a valid email address.')
+    
     class Meta:
         model = User
-        fields = ('username', 'password1', 'password2')
-        
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Customize help text
-        self.fields['username'].help_text = 'Choose a unique username (letters, numbers, and @/./+/-/_ only)'
-        self.fields['password1'].help_text = 'Your password must be at least 8 characters long'
-        self.fields['password2'].help_text = 'Enter the same password as before'
-        
-        # Add placeholders
-        self.fields['username'].widget.attrs.update({'placeholder': 'Choose a username'})
-        self.fields['password1'].widget.attrs.update({'placeholder': 'Create a password'})
-        self.fields['password2'].widget.attrs.update({'placeholder': 'Confirm your password'})
+        fields = ('username', 'email', 'password1', 'password2')

@@ -8,5 +8,4 @@ urlpatterns = [
     path('api/messages/<int:receiver_id>/', views.get_messages, name='get_messages'),
     path('api/send_message/<int:receiver_id>/', views.send_message, name='send_message'),
     path('api/users/', views.get_users, name='get_users'),
-    path('api/toggle_ai_bot/<int:receiver_id>/', views.toggle_ai_bot, name='toggle_ai_bot'),
 ]

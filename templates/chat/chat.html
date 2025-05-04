@@ -11,13 +11,7 @@
                     <a href="{% url 'home' %}" class="text-white me-2"><i class="bi bi-arrow-left"></i></a>
                     {{ receiver.username }}
                 </h4>
-                <div class="d-flex align-items-center">
-                    <div class="form-check form-switch me-3">
-                        <input class="form-check-input" type="checkbox" id="aiBotToggle" {% if receiver.useraisettings.ai_bot_enabled %}checked{% endif %}>
-                        <label class="form-check-label text-white" for="aiBotToggle">AI Bot</label>
-                    </div>
-                    <span class="status-indicator {% if receiver.userstatus.is_online %}online{% else %}offline{% endif %}"></span>
-                </div>
+                <span class="status-indicator {% if receiver.userstatus.is_online %}online{% else %}offline{% endif %}"></span>
             </div>
             <div class="card-body chat-container" id="chat-messages">
                 {% for message in messages %}
@@ -114,12 +108,6 @@
     .offline {
         background-color: #dc3545;
     }
-    .form-check-input {
-        cursor: pointer;
-    }
-    .form-check-label {
-        cursor: pointer;
-    }
 </style>
 {% endblock %}
 
@@ -130,30 +118,6 @@
         const messageForm = $('#message-form');
         const messageInput = $('#message-input');
         const receiverId = {{ receiver.id }};
-        const aiBotToggle = $('#aiBotToggle');
-        
-        // Handle AI bot toggle
-        aiBotToggle.on('change', function() {
-            $.ajax({
-                url: `/api/toggle_ai_bot/${receiverId}/`,
-                type: 'POST',
-                data: {
-                    enabled: $(this).is(':checked')
-                },
-                success: function(response) {
-                    if (response.status === 'success') {
-                        // Show success message
-                        const message = response.enabled ? 'AI Bot enabled' : 'AI Bot disabled';
-                        const alert = $(`<div class="alert alert-success alert-dismissible fade show" role="alert">
-                            ${message}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>`);
-                        $('.card-body').prepend(alert);
-                        setTimeout(() => alert.alert('close'), 3000);
-                    }
-                }
-            });
-        });
         
         // Scroll to bottom of chat container
         function scrollToBottom() {

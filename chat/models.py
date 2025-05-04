@@ -23,11 +23,3 @@ class UserStatus(models.Model):
 
     def __str__(self):
         return f'{self.user.username} - {"Online" if self.is_online else "Offline"}'
-
-class UserAISettings(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    ai_bot_enabled = models.BooleanField(default=False)
-    last_updated = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f'{self.user.username} - AI Bot {"Enabled" if self.ai_bot_enabled else "Disabled"}'
