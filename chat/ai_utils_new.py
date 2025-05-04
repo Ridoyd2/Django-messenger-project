@@ -20,53 +20,10 @@ FALLBACK_RESPONSES = [
     "I'll get back to you on this shortly."
 ]
 
-# Simpler AI response function that doesn't depend on external API
-def get_simple_ai_response(sender, receiver, message_history):
-    """
-    Generate a simple AI response without using external APIs
-    
-    Args:
-        sender: User who sent the message
-        receiver: User who is offline
-        message_history: List of the last 10 messages
-        
-    Returns:
-        str: Generated response
-    """
-    # If no message history, return a greeting
-    if not message_history:
-        return f"Hi {sender.username}! How can I help you today?"
-    
-    # Get the last message
-    last_message = message_history[-1].content.lower()
-    
-    # Check if it's a question
-    if "?" in last_message:
-        if any(word in last_message for word in ["how", "what", "why", "when", "where"]):
-            return f"Good question, {sender.username}. Let me think about that and get back to you when I'm online."
-        return "I'll answer your question when I get back online."
-    
-    # Check if it's a greeting
-    if any(greeting in last_message for greeting in ["hi ", "hello", "hey", "what's up", "sup"]):
-        return f"Hello {sender.username}! I'm not available right now, but I'll be back soon to chat."
-    
-    # Check if it contains thank you
-    if any(phrase in last_message for phrase in ["thank", "thanks", "appreciate"]):
-        return "You're welcome! Happy to help."
-    
-    # Check if it's about status or availability
-    if any(word in last_message for word in ["available", "there", "online", "busy", "free"]):
-        return f"I'm currently offline, {sender.username}. I'll respond to you when I'm back online."
-    
-    # Default response based on conversation length
-    if len(message_history) < 3:
-        return f"Thanks for reaching out, {sender.username}. I'll get back to you soon!"
-    else:
-        return f"I'm reading your message and will respond when I'm back online, {sender.username}."
-
 def get_ai_response(sender, receiver, message_history):
     """
-    Generate AI response based on the last 10 messages
+    Generate AI response based on the last 10 messages using Hugging Face API
+    with a fallback to simple responses if the API fails
     
     Args:
         sender: User sending the message
@@ -75,11 +32,6 @@ def get_ai_response(sender, receiver, message_history):
     
     Returns:
         str: AI generated response
-    """
-    # Just use the simple AI response function for now - more reliable
-    return get_simple_ai_response(sender, receiver, message_history)
-    
-    # Code below is kept for reference but not used - it was causing timeout issues
     """
     # Format last 10 messages for the AI
     conversation = []
@@ -90,7 +42,7 @@ def get_ai_response(sender, receiver, message_history):
             conversation.append(f"{sender.username}: {msg.content}")
     
     # Create context for the AI
-    context = f'''
+    context = f"""
 This is a conversation between {sender.username} and {receiver.username}.
 I am {receiver.username} and I should respond to {sender.username}'s last message.
 Here's our conversation so far:
@@ -100,7 +52,7 @@ Here's our conversation so far:
 {sender.username}'s last message was: {message_history[-1].content if message_history else "Hello!"}
 
 As {receiver.username}, my response is:
-'''
+"""
     
     try:
         # Make API call to Hugging Face API with a short timeout
@@ -124,16 +76,16 @@ As {receiver.username}, my response is:
         model = "microsoft/phi-2"
         
         try:
-        response = requests.post(
+            response = requests.post(
                 f"https://api-inference.huggingface.co/models/{model}", 
-            headers=headers,
+                headers=headers,
                 json=payload,
                 timeout=5  # Short timeout to avoid hanging
-        )
-        
-        if response.status_code == 200:
+            )
+            
+            if response.status_code == 200:
                 try:
-            response_data = response.json()
+                    response_data = response.json()
                     
                     # Parse the response
                     if isinstance(response_data, list) and len(response_data) > 0:
@@ -151,7 +103,7 @@ As {receiver.username}, my response is:
                             ai_response = parts[1].strip()
                         else:
                             ai_response = generated_text
-        else:
+                    else:
                         ai_response = generated_text
                     
                     # Ensure response isn't too long
@@ -163,7 +115,7 @@ As {receiver.username}, my response is:
                     print(f"Error processing AI response: {e}")
                     # Fall through to using fallback response
             
-    except Exception as e:
+        except Exception as e:
             print(f"Error with Hugging Face API: {e}")
             # Fall through to using fallback response
             
@@ -185,7 +137,10 @@ As {receiver.username}, my response is:
             ])
         else:
             return random.choice(FALLBACK_RESPONSES)
-    """
+            
+    except Exception as e:
+        print(f"Error generating AI response: {e}")
+        return random.choice(FALLBACK_RESPONSES)
 
 def create_bot_response(sender, receiver):
     """

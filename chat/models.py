@@ -20,6 +20,7 @@ class UserStatus(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     is_online = models.BooleanField(default=False)
     last_online = models.DateTimeField(default=timezone.now)
+    ai_bot_enabled = models.BooleanField(default=False)
 
     def __str__(self):
         return f'{self.user.username} - {"Online" if self.is_online else "Offline"}'

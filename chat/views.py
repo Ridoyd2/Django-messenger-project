@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q
+from django.utils import timezone
 import json
 
 from .models import Message, UserStatus
@@ -104,11 +105,14 @@ def send_message(request, receiver_id):
             'is_bot_response': False,
         }
         
-        # Check if receiver is offline, then generate a bot response
+        # Check if receiver is offline and has AI bot enabled
         try:
             user_status = UserStatus.objects.get(user=receiver)
-            if not user_status.is_online:
+            
+            # Only generate AI response if user is offline AND has AI bot enabled
+            if not user_status.is_online and user_status.ai_bot_enabled:
                 bot_message = create_bot_response(request.user, receiver)
+                if bot_message:
                 bot_message_data = {
                     'id': bot_message.id,
                     'sender': bot_message.sender.username,
@@ -123,7 +127,8 @@ def send_message(request, receiver_id):
                     'bot_response': bot_message_data
                 })
         except UserStatus.DoesNotExist:
-            pass
+            # Create a user status for the receiver if it doesn't exist
+            UserStatus.objects.create(user=receiver, is_online=False, ai_bot_enabled=False)
         
         return JsonResponse({'status': 'success', 'message': message_data})
     
@@ -156,3 +161,56 @@ def get_users(request):
         })
     
     return JsonResponse({'users': user_list})
+
+@csrf_exempt
+@login_required
+def toggle_ai_bot(request):
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        enabled = data.get('enabled', False)
+        
+        try:
+            user_status, created = UserStatus.objects.get_or_create(user=request.user)
+            user_status.ai_bot_enabled = enabled
+            user_status.save()
+            return JsonResponse({'status': 'success', 'enabled': enabled})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)})
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+# New view for debugging user statuses
+@login_required
+def active_sessions(request):
+    # Only allow staff/admin to view this page
+    if not request.user.is_staff:
+        return redirect('home')
+        
+    # Get all user statuses
+    all_statuses = UserStatus.objects.all().select_related('user')
+    
+    return render(request, 'chat/active_sessions.html', {
+        'statuses': all_statuses
+    })
+
+# Force set a user's status to offline (for admins/staff only)
+@login_required
+def force_logout(request, user_id):
+    # Only allow staff/admin to perform this action
+    if not request.user.is_staff:
+        return redirect('home')
+    
+    user = get_object_or_404(User, id=user_id)
+    
+    try:
+        user_status, created = UserStatus.objects.get_or_create(user=user)
+        user_status.is_online = False
+        user_status.last_online = timezone.now()
+        user_status.save()
+        
+        return redirect('active_sessions')
+    except Exception as e:
+        return render(request, 'chat/active_sessions.html', {
+            'statuses': UserStatus.objects.all().select_related('user'),
+            'error': f"Error setting user offline: {str(e)}"
+        })

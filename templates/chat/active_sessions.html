@@ -1,0 +1,89 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Active Sessions - Messenger{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Active Sessions</h4>
+                <small class="text-white">This page shows the online/offline status of all users</small>
+            </div>
+            <div class="card-body">
+                {% if error %}
+                <div class="alert alert-danger">{{ error }}</div>
+                {% endif %}
+                
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Status</th>
+                            <th>AI Bot</th>
+                            <th>Last Online</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for status in statuses %}
+                        <tr>
+                            <td>{{ status.user.username }}</td>
+                            <td>
+                                {% if status.is_online %}
+                                    <span class="badge bg-success">Online</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Offline</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if status.ai_bot_enabled %}
+                                    <span class="badge bg-info">Enabled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Disabled</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ status.last_online|date:"Y-m-d H:i:s" }}</td>
+                            <td>
+                                {% if status.is_online %}
+                                <a href="{% url 'force_logout' status.user.id %}" class="btn btn-sm btn-danger" 
+                                   onclick="return confirm('Are you sure you want to force {{ status.user.username }} to be offline?')">
+                                    Force Offline
+                                </a>
+                                {% else %}
+                                <span class="text-muted">Already offline</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No users found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="mt-4">
+                    <a href="{% url 'home' %}" class="btn btn-primary">Back to Home</a>
+                    <button id="refresh-btn" class="btn btn-success ms-2">Refresh</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('#refresh-btn').click(function() {
+            location.reload();
+        });
+        
+        // Auto refresh every 10 seconds
+        setTimeout(function() {
+            location.reload();
+        }, 10000);
+    });
+</script>
+{% endblock %} 
