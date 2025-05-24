@@ -8,11 +8,7 @@ A real-time messaging application built with Django.
 - User authentication
 - Chat rooms
 - Message history
-
-## Prerequisites
-
-- Python 3.x
-- pip (Python package installer)
+- Ai Chatbot
 
 ## Installation
 
