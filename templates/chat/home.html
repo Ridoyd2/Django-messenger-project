@@ -1,0 +1,168 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Home - Messenger{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <!-- AI Bot Card -->
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0">AI Bot Settings</h4>
+            </div>
+            <div class="card-body">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="ai-bot-toggle" {% if user.userstatus.ai_bot_enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="ai-bot-toggle">
+                        <strong>Enable AI Bot</strong>
+                    </label>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">
+                        When enabled, the AI bot will automatically respond to messages on your behalf when you're offline.
+                        It will analyze your past conversations and respond in a similar style.
+                    </small>
+                </div>
+                <div id="ai-status" class="mt-2"></div>
+            </div>
+        </div>
+        
+        <!-- Contacts Card -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Contacts</h4>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush" id="user-list">
+                    {% for user in users %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <a href="{% url 'chat' user.id %}" class="text-decoration-none">
+                                {{ user.username }}
+                            </a>
+                            <span class="status-indicator {% if user.userstatus.is_online %}online{% else %}offline{% endif %}"></span>
+                        </div>
+                        <span class="badge bg-primary rounded-pill message-count" data-user-id="{{ user.id }}">0</span>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item">No other users found.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .status-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-left: 5px;
+    }
+    .online {
+        background-color: #28a745;
+    }
+    .offline {
+        background-color: #dc3545;
+    }
+    .message-count {
+        display: none;
+    }
+    .form-switch .form-check-input {
+        width: 3em;
+        height: 1.5em;
+        margin-left: -3em;
+        cursor: pointer;
+    }
+    .form-check-label {
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Function to update user list
+        function updateUserList() {
+            $.ajax({
+                url: '{% url "get_users" %}',
+                type: 'GET',
+                dataType: 'json',
+                success: function(data) {
+                    // Update user list with online status and unread message count
+                    data.users.forEach(function(user) {
+                        const userItem = $(`#user-list li a:contains('${user.username}')`).parent().parent();
+                        const statusIndicator = userItem.find('.status-indicator');
+                        const messageCount = userItem.find('.message-count');
+                        
+                        // Update online status
+                        if (user.is_online) {
+                            statusIndicator.removeClass('offline').addClass('online');
+                        } else {
+                            statusIndicator.removeClass('online').addClass('offline');
+                        }
+                        
+                        // Update unread message count
+                        messageCount.text(user.unread_count);
+                        if (user.unread_count > 0) {
+                            messageCount.show();
+                        } else {
+                            messageCount.hide();
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Toggle AI bot
+        $('#ai-bot-toggle').change(function() {
+            const isEnabled = $(this).is(':checked');
+            const statusDiv = $('#ai-status');
+            
+            statusDiv.html('<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div> Updating settings...');
+            
+            $.ajax({
+                url: '{% url "toggle_ai_bot" %}',
+                type: 'POST',
+                contentType: 'application/json',
+                dataType: 'json',
+                data: JSON.stringify({ 'enabled': isEnabled }),
+                success: function(data) {
+                    if (data.status === 'success') {
+                        if (isEnabled) {
+                            statusDiv.html('<div class="alert alert-success p-2 mt-2">AI bot enabled! It will respond to messages when you\'re offline.</div>');
+                        } else {
+                            statusDiv.html('<div class="alert alert-secondary p-2 mt-2">AI bot disabled. No automatic responses will be sent.</div>');
+                        }
+                        setTimeout(() => statusDiv.html(''), 3000);
+                    } else {
+                        statusDiv.html('<div class="alert alert-danger p-2 mt-2">Error updating settings. Please try again.</div>');
+                    }
+                },
+                error: function() {
+                    statusDiv.html('<div class="alert alert-danger p-2 mt-2">Error updating settings. Please try again.</div>');
+                }
+            });
+        });
+        
+        // Update user list when page loads
+        updateUserList();
+        
+        // Set initial AI status message
+        const isEnabled = $('#ai-bot-toggle').is(':checked');
+        if (isEnabled) {
+            $('#ai-status').html('<div class="alert alert-success p-2 mt-2">AI bot is currently enabled.</div>');
+        } else {
+            $('#ai-status').html('<div class="alert alert-secondary p-2 mt-2">AI bot is currently disabled.</div>');
+        }
+        
+        // Update user list every 10 seconds
+        setInterval(updateUserList, 10000);
+    });
+</script>
+{% endblock %} 
